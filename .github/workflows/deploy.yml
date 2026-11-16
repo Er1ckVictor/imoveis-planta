@@ -1,0 +1,61 @@
+# Publica o site no GitHub Pages a cada push na branch main.
+# Uma vez só: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# Domínio próprio: troque BASE_PATH por "" e NEXT_PUBLIC_SITE_URL pelo seu endereço.
+name: Publicar no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # Caminho do site: /nome-do-repositorio, ou vazio para o repositório usuario.github.io
+      - name: Definir caminho do site
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          REPO="${{ github.event.repository.name }}"
+          if [ "${REPO,,}" = "${OWNER}.github.io" ]; then BASE_PATH=""; else BASE_PATH="/${REPO}"; fi
+          echo "NEXT_PUBLIC_BASE_PATH=${BASE_PATH}" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SITE_URL=https://${OWNER}.github.io${BASE_PATH}" >> "$GITHUB_ENV"
+
+      - run: npm ci
+
+      # Valores vêm de Settings → Secrets and variables → Actions → Variables (vazio = texto padrão)
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SEO_TITLE: ${{ vars.NEXT_PUBLIC_SEO_TITLE }}
+          NEXT_PUBLIC_SEO_DESCRIPTION: ${{ vars.NEXT_PUBLIC_SEO_DESCRIPTION }}
+          NEXT_PUBLIC_PHONE: ${{ vars.NEXT_PUBLIC_PHONE }}
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
