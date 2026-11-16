@@ -1,0 +1,8 @@
+node_modules
+.next
+out
+next-env.d.ts
+*.tsbuildinfo
+# o .env tem só dados públicos (SEO e telefone) e é usado no build do GitHub Pages
+.env
+.DS_Store
